@@ -48,19 +48,17 @@ export async function POST(request: NextRequest) {
         })
         const statusData = await statusRes.json()
         lastStatusData = statusData
-        console.log(`[schedule] Job poll ${i + 1}: status=${statusData?.data?.status}, payload=${JSON.stringify(statusData?.data?.payload)}`)
+        // Support both response shapes: { status, payload } and { data: { status, payload } }
+        const status = statusData?.status ?? statusData?.data?.status
+        const payload = statusData?.payload ?? statusData?.data?.payload
+        console.log(`[schedule] Job poll ${i + 1}: status=${status}, payload=${JSON.stringify(payload)}`)
 
-        if (statusData?.data?.status === 'complete') {
-          const payload = statusData?.data?.payload
-          // Try various paths where media ID might be
-          mediaId = payload?.id
-            || payload?.media_id
-            || (Array.isArray(payload) ? payload[0]?.id : null)
-            || (payload?.media ? payload.media[0]?.id : null)
-          console.log(`[schedule] Job complete. mediaId=${mediaId}, full payload:`, JSON.stringify(payload))
+        if (status === 'complete') {
+          mediaId = Array.isArray(payload) ? payload[0]?.id : (payload?.id ?? null)
+          console.log(`[schedule] Job complete. mediaId=${mediaId}`)
           break
         }
-        if (statusData?.data?.status === 'failed') throw new Error(`Bild-Upload Job fehlgeschlagen: ${JSON.stringify(statusData)}`)
+        if (status === 'failed') throw new Error(`Bild-Upload Job fehlgeschlagen: ${JSON.stringify(statusData)}`)
         await new Promise(r => setTimeout(r, 2000))
       }
       if (!mediaId) throw new Error(`Konnte Media-ID nicht ermitteln. Letzter Job-Status: ${JSON.stringify(lastStatusData)}`)
