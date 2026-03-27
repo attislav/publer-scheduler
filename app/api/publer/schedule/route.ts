@@ -33,7 +33,8 @@ export async function POST(request: NextRequest) {
       })
       const mediaRawText = await mediaRes.text()
       console.log(`[schedule] Step 1 response (${mediaRes.status}): ${mediaRawText}`)
-      let mediaData: Record<string, unknown>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let mediaData: any
       try { mediaData = JSON.parse(mediaRawText) } catch { throw new Error(`Upload-Antwort kein JSON (${mediaRes.status}): ${mediaRawText.substring(0, 200)}`) }
 
       const jobId = mediaData?.job_id
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
           headers: headers(key, workspaceId)
         })
         const statusRawText = await statusRes.text()
-        let statusData: Record<string, unknown>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let statusData: any
         try { statusData = JSON.parse(statusRawText) } catch { throw new Error(`Job-Status kein JSON: ${statusRawText.substring(0, 200)}`) }
         lastStatusData = statusData
         // Support both response shapes: { status, payload } and { data: { status, payload } }
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
         console.log(`[schedule] Job poll ${i + 1}: status=${status}, payload=${JSON.stringify(payload)}`)
 
         if (status === 'complete') {
-          mediaId = Array.isArray(payload) ? payload[0]?.id : (payload?.id ?? null)
+          mediaId = Array.isArray(payload) ? payload[0]?.id : payload?.id ?? null
           console.log(`[schedule] Job complete. mediaId=${mediaId}`)
           break
         }
@@ -97,7 +99,8 @@ export async function POST(request: NextRequest) {
       })
       const postRawText = await postRes.text()
       console.log(`[schedule] Step 3 response (${postRes.status}): ${postRawText}`)
-      let postData: Record<string, unknown>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let postData: any
       try { postData = JSON.parse(postRawText) } catch { throw new Error(`Post-Antwort kein JSON (${postRes.status}): ${postRawText.substring(0, 200)}`) }
 
       results.push({
