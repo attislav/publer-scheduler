@@ -24,6 +24,7 @@ interface Account {
   id: string
   name: string
   type: string
+  provider?: string
 }
 
 function parseCSVLine(line: string): string[] {
@@ -103,7 +104,7 @@ export default function Home() {
     fetch('/api/publer/workspaces')
       .then(r => r.json())
       .then(data => {
-        const list = data?.data || []
+        const list = Array.isArray(data) ? data : (data?.data || [])
         setWorkspaces(list)
         if (list.length > 0) setSelectedWorkspace(list[0].id)
       })
@@ -119,7 +120,8 @@ export default function Home() {
     fetch(`/api/publer/accounts?workspaceId=${selectedWorkspace}`)
       .then(r => r.json())
       .then(data => {
-        const list = (data?.data || []).filter((a: Account) => a.type === 'facebook' || a.type === 'facebook_page' || a.type?.includes('facebook'))
+        const raw = Array.isArray(data) ? data : (data?.data || [])
+        const list = raw.filter((a: Account) => a.type?.includes('facebook') || a.type === 'fb_page' || a.provider === 'facebook')
         setAccounts(list)
         if (list.length > 0) setSelectedAccount(list[0].id)
       })
