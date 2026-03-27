@@ -22,41 +22,57 @@ interface Account {
   type: string
 }
 
+function parseCSVLine(line: string): string[] {
+  const values: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let j = 0; j < line.length; j++) {
+    const ch = line[j]
+    if (ch === '"') {
+      inQuotes = !inQuotes
+    } else if (ch === ',' && !inQuotes) {
+      values.push(current.trim().replace(/^"|"$/g, ''))
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  values.push(current.trim().replace(/^"|"$/g, ''))
+  return values
+}
+
 function parseCSV(raw: string): Post[] {
   const lines = raw.trim().split('\n')
   if (lines.length < 2) return []
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''))
+  const header = parseCSVLine(lines[0]).map(h => h.toLowerCase())
+
+  // Find column indexes — supports both Publer native export and custom format
+  const findCol = (matchers: string[]) => {
+    for (const m of matchers) {
+      const idx = header.findIndex(h => h.includes(m))
+      if (idx >= 0) return idx
+    }
+    return -1
+  }
+  const colDate    = findCol(['date', 'scheduled_at'])
+  const colText    = findCol(['text'])
+  const colMedia   = findCol(['media url', 'image_url'])
+  const colComment = findCol(['comment', 'first_comment'])
+
   const posts: Post[] = []
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim()
     if (!line) continue
-    // Handle quoted fields with commas inside
-    const values: string[] = []
-    let current = ''
-    let inQuotes = false
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j]
-      if (ch === '"') {
-        inQuotes = !inQuotes
-      } else if (ch === ',' && !inQuotes) {
-        values.push(current.trim())
-        current = ''
-      } else {
-        current += ch
-      }
-    }
-    values.push(current.trim())
-
-    const get = (key: string) => {
-      const idx = header.indexOf(key)
-      return idx >= 0 ? (values[idx] || '').replace(/^"|"$/g, '').trim() : ''
-    }
-
+    const values = parseCSVLine(line)
+    const get = (idx: number) => (idx >= 0 ? (values[idx] || '').trim() : '')
+    // Media URL: take only the first URL if comma-separated
+    const mediaRaw = get(colMedia)
+    const imageUrl = mediaRaw.split(',')[0].trim()
     posts.push({
-      imageUrl: get('image_url'),
-      text: get('text'),
-      firstComment: get('first_comment'),
-      scheduledAt: get('scheduled_at'),
+      imageUrl,
+      text: get(colText),
+      firstComment: get(colComment),
+      scheduledAt: get(colDate),
       status: 'ausstehend',
     })
   }
@@ -261,10 +277,10 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-white mb-4">CSV Import</h2>
 
           <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
-            <p className="text-xs text-gray-400 font-mono">
-              <span className="text-gray-300">Format:</span> image_url,text,first_comment,scheduled_at
+            <p className="text-xs text-gray-400">
+              <span className="text-gray-300 font-medium">Publer CSV-Export</span> wird direkt unterstützt.
               <br />
-              <span className="text-gray-500">Beispiel: https://example.com/img.jpg,&quot;Post Text&quot;,Erster Kommentar,2026-04-01T10:00:00+02:00</span>
+              <span className="text-gray-500">Spalten: Date · Text · Links · <span className="text-blue-400">Media URL(s)</span> · Title · Labels · Alt · <span className="text-blue-400">Comment(s)</span> · …</span>
             </p>
           </div>
 
