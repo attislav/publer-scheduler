@@ -95,7 +95,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState('')
   const [intervalValue, setIntervalValue] = useState(1)
   const [intervalUnit, setIntervalUnit] = useState<'days' | 'hours'>('days')
-  const [postMode, setPostMode] = useState<'scheduled' | 'now'>('scheduled')
+  const [postMode, setPostMode] = useState<'scheduled' | 'now' | 'draft'>('scheduled')
   const [isScheduling, setIsScheduling] = useState(false)
   const [schedulingProgress, setSchedulingProgress] = useState(0)
   const [results, setResults] = useState<{ success: boolean; text: string; scheduledAt: string; error?: string | null }[]>([])
@@ -505,6 +505,7 @@ export default function Home() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center bg-gray-800 rounded-lg p-0.5 border border-gray-700">
                   {([
+                    { value: 'draft', label: 'Draft', color: 'text-yellow-400' },
                     { value: 'scheduled', label: 'Geplant', color: 'text-green-400' },
                     { value: 'now', label: 'Sofort', color: 'text-orange-400' },
                   ] as const).map(m => (
@@ -521,18 +522,20 @@ export default function Home() {
                   onClick={handleScheduleAll}
                   disabled={isScheduling || !selectedAccount || posts.length === 0}
                   className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm text-white font-medium transition-colors disabled:bg-gray-700 disabled:text-gray-500 ${
-                    postMode === 'now' ? 'bg-orange-600 hover:bg-orange-500' : 'bg-green-600 hover:bg-green-500'
+                    postMode === 'now' ? 'bg-orange-600 hover:bg-orange-500' :
+                    postMode === 'draft' ? 'bg-yellow-700 hover:bg-yellow-600' :
+                    'bg-green-600 hover:bg-green-500'
                   }`}
                 >
                   {isScheduling ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      {postMode === 'now' ? 'Veröffentliche...' : 'Planend...'} ({schedulingProgress}/{posts.length})
+                      {postMode === 'draft' ? 'Drafts...' : postMode === 'now' ? 'Veröffentliche...' : 'Planend...'} ({schedulingProgress}/{posts.length})
                     </>
                   ) : (
                     <>
                       <Play className="w-4 h-4" />
-                      {postMode === 'now' ? 'Alle sofort posten' : 'Alle planen'}
+                      {postMode === 'draft' ? 'Alle als Draft' : postMode === 'now' ? 'Alle sofort posten' : 'Alle planen'}
                     </>
                   )}
                 </button>
@@ -601,7 +604,7 @@ export default function Home() {
                           <button
                             onClick={() => handleScheduleOne(idx)}
                             disabled={post.status === 'geplant' || isScheduling}
-                            className={`p-1.5 rounded transition-colors disabled:opacity-30 ${postMode === 'now' ? 'text-orange-400 hover:bg-orange-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
+                            className={`p-1.5 rounded transition-colors disabled:opacity-30 ${postMode === 'now' ? 'text-orange-400 hover:bg-orange-900/40' : postMode === 'draft' ? 'text-yellow-400 hover:bg-yellow-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
                             title={postMode === 'now' ? 'Sofort veröffentlichen' : 'Planen'}
                           >
                             <Play className="w-3.5 h-3.5" />

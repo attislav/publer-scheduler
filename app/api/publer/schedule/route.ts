@@ -78,21 +78,35 @@ export async function POST(request: NextRequest) {
         accountEntry.comments = [comment]
       }
 
-      const state = 'scheduled'
-      console.log(`[schedule] Using state="${state}", mode=${post.postMode}`)
-      const postBody = {
-        bulk: {
-          state,
-          posts: [{
-            networks: { facebook: { type: 'photo', text: post.text } },
-            media: [{ id: mediaId, type: 'photo' }],
-            accounts: [accountEntry]
-          }]
-        }
-      }
+      const isDraft = post.postMode === 'draft'
+      console.log(`[schedule] Mode=${post.postMode}, isDraft=${isDraft}`)
 
-      console.log(`[schedule] Step 3: Creating post...`, JSON.stringify(postBody))
-      const postRes = await fetch(`${PUBLER_BASE}/posts/schedule/publish`, {
+      // Draft: different endpoint + networks.default, no accounts needed
+      // Scheduled/Now: /posts/schedule/publish + networks.facebook + accounts
+      const postBody = isDraft
+        ? {
+            bulk: {
+              state: 'draft_public',
+              posts: [{
+                networks: { default: { type: 'photo', text: post.text } },
+                media: [{ id: mediaId, type: 'photo' }],
+              }]
+            }
+          }
+        : {
+            bulk: {
+              state: 'scheduled',
+              posts: [{
+                networks: { facebook: { type: 'photo', text: post.text } },
+                media: [{ id: mediaId, type: 'photo' }],
+                accounts: [accountEntry]
+              }]
+            }
+          }
+
+      const postEndpoint = isDraft ? `${PUBLER_BASE}/posts/schedule` : `${PUBLER_BASE}/posts/schedule/publish`
+      console.log(`[schedule] Step 3: Creating post via ${postEndpoint}...`, JSON.stringify(postBody))
+      const postRes = await fetch(postEndpoint, {
         method: 'POST',
         headers: headers(key, workspaceId),
         body: JSON.stringify(postBody)
