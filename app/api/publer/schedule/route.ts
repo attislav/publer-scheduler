@@ -31,8 +31,10 @@ export async function POST(request: NextRequest) {
         headers: headers(key, workspaceId),
         body: JSON.stringify({ media: [{ url: post.imageUrl, name: 'post-image' }], type: 'single' })
       })
-      const mediaData = await mediaRes.json()
-      console.log(`[schedule] Step 1 response (${mediaRes.status}):`, JSON.stringify(mediaData))
+      const mediaRawText = await mediaRes.text()
+      console.log(`[schedule] Step 1 response (${mediaRes.status}): ${mediaRawText}`)
+      let mediaData: Record<string, unknown>
+      try { mediaData = JSON.parse(mediaRawText) } catch { throw new Error(`Upload-Antwort kein JSON (${mediaRes.status}): ${mediaRawText.substring(0, 200)}`) }
 
       const jobId = mediaData?.job_id
       if (!jobId) throw new Error(`Bild-Upload fehlgeschlagen (${mediaRes.status}): ${JSON.stringify(mediaData)}`)
@@ -46,7 +48,9 @@ export async function POST(request: NextRequest) {
         const statusRes = await fetch(`${PUBLER_BASE}/job_status/${jobId}`, {
           headers: headers(key, workspaceId)
         })
-        const statusData = await statusRes.json()
+        const statusRawText = await statusRes.text()
+        let statusData: Record<string, unknown>
+        try { statusData = JSON.parse(statusRawText) } catch { throw new Error(`Job-Status kein JSON: ${statusRawText.substring(0, 200)}`) }
         lastStatusData = statusData
         // Support both response shapes: { status, payload } and { data: { status, payload } }
         const status = statusData?.status ?? statusData?.data?.status
@@ -91,8 +95,10 @@ export async function POST(request: NextRequest) {
         headers: headers(key, workspaceId),
         body: JSON.stringify(postBody)
       })
-      const postData = await postRes.json()
-      console.log(`[schedule] Step 3 response (${postRes.status}):`, JSON.stringify(postData))
+      const postRawText = await postRes.text()
+      console.log(`[schedule] Step 3 response (${postRes.status}): ${postRawText}`)
+      let postData: Record<string, unknown>
+      try { postData = JSON.parse(postRawText) } catch { throw new Error(`Post-Antwort kein JSON (${postRes.status}): ${postRawText.substring(0, 200)}`) }
 
       results.push({
         success: postData?.success === true,
