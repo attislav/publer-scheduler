@@ -1,6 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import {
+  Upload, FileText, Play, Trash2, CheckCircle2, XCircle,
+  Clock, RefreshCw, ChevronDown, Calendar, Settings2, LayoutList, Loader2
+} from 'lucide-react'
 
 interface Post {
   imageUrl: string
@@ -46,7 +50,6 @@ function parseCSV(raw: string): Post[] {
   if (lines.length < 2) return []
   const header = parseCSVLine(lines[0]).map(h => h.toLowerCase())
 
-  // Find column indexes — supports both Publer native export and custom format
   const findCol = (matchers: string[]) => {
     for (const m of matchers) {
       const idx = header.findIndex(h => h.includes(m))
@@ -65,7 +68,6 @@ function parseCSV(raw: string): Post[] {
     if (!line) continue
     const values = parseCSVLine(line)
     const get = (idx: number) => (idx >= 0 ? (values[idx] || '').trim() : '')
-    // Media URL: take only the first URL if comma-separated
     const mediaRaw = get(colMedia)
     const imageUrl = mediaRaw.split(',')[0].trim()
     posts.push({
@@ -178,7 +180,6 @@ export default function Home() {
       accountId: selectedAccount,
     }))
 
-    // Schedule in batches of 5 to show progress
     const batchSize = 5
     const allResults: typeof results = []
 
@@ -199,7 +200,6 @@ export default function Home() {
       setResults([...allResults])
     }
 
-    // Update post statuses
     setPosts(prev => prev.map((p, idx) => ({
       ...p,
       status: allResults[idx]?.success ? 'geplant' : 'fehlgeschlagen',
@@ -217,39 +217,51 @@ export default function Home() {
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Publer Scheduler</h1>
-            <p className="text-gray-400 text-sm mt-0.5">Facebook Bulk Post Planer</p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white leading-tight">Publer Scheduler</h1>
+              <p className="text-gray-500 text-xs">Facebook Bulk Post Planer</p>
+            </div>
           </div>
           {posts.length > 0 && (
-            <div className="text-sm text-gray-400">
-              <span className="text-white font-medium">{posts.length}</span> Posts geladen
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <LayoutList className="w-4 h-4" />
+              <span><span className="text-white font-medium">{posts.length}</span> Posts geladen</span>
             </div>
           )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-5">
 
         {/* Config Section */}
         <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Konfiguration</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Settings2 className="w-4 h-4 text-gray-400" />
+            <h2 className="text-base font-semibold text-white">Konfiguration</h2>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1.5">Workspace</label>
               {loadingWorkspaces ? (
                 <div className="h-10 bg-gray-800 rounded-lg animate-pulse" />
               ) : (
-                <select
-                  value={selectedWorkspace}
-                  onChange={e => setSelectedWorkspace(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                >
-                  {workspaces.length === 0 && <option value="">Keine Workspaces gefunden</option>}
-                  {workspaces.map(w => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={selectedWorkspace}
+                    onChange={e => setSelectedWorkspace(e.target.value)}
+                    className="w-full appearance-none bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-8 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {workspaces.length === 0 && <option value="">Keine Workspaces gefunden</option>}
+                    {workspaces.map(w => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
               )}
             </div>
             <div>
@@ -257,16 +269,19 @@ export default function Home() {
               {loadingAccounts ? (
                 <div className="h-10 bg-gray-800 rounded-lg animate-pulse" />
               ) : (
-                <select
-                  value={selectedAccount}
-                  onChange={e => setSelectedAccount(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                >
-                  {accounts.length === 0 && <option value="">Keine Facebook-Seiten gefunden</option>}
-                  {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={selectedAccount}
+                    onChange={e => setSelectedAccount(e.target.value)}
+                    className="w-full appearance-none bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-8 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {accounts.length === 0 && <option value="">Keine Facebook-Seiten gefunden</option>}
+                    {accounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
               )}
             </div>
           </div>
@@ -274,9 +289,12 @@ export default function Home() {
 
         {/* CSV Import */}
         <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">CSV Import</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="w-4 h-4 text-gray-400" />
+            <h2 className="text-base font-semibold text-white">CSV Import</h2>
+          </div>
 
-          <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
+          <div className="mb-3 p-3 bg-gray-800/60 rounded-lg border border-gray-700/50">
             <p className="text-xs text-gray-400">
               <span className="text-gray-300 font-medium">Publer CSV-Export</span> wird direkt unterstützt.
               <br />
@@ -289,14 +307,15 @@ export default function Home() {
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
               placeholder="CSV hier einfügen..."
-              className="w-full h-32 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none placeholder-gray-600"
+              className="w-full h-28 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none placeholder-gray-600"
             />
 
             <div className="flex items-center gap-3">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
               >
+                <Upload className="w-3.5 h-3.5" />
                 CSV-Datei hochladen
               </button>
               <input
@@ -309,12 +328,14 @@ export default function Home() {
               <button
                 onClick={handleParse}
                 disabled={!csvText.trim()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
               >
+                <RefreshCw className="w-3.5 h-3.5" />
                 Parsen
               </button>
               {posts.length > 0 && (
-                <span className="text-sm text-green-400">
+                <span className="flex items-center gap-1.5 text-sm text-green-400">
+                  <CheckCircle2 className="w-4 h-4" />
                   {posts.length} Posts geladen
                 </span>
               )}
@@ -324,8 +345,11 @@ export default function Home() {
 
         {/* Auto-Schedule */}
         <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-white">Auto-Zeitplan</h2>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-400" />
+              <h2 className="text-base font-semibold text-white">Auto-Zeitplan</h2>
+            </div>
             <button
               onClick={() => setAutoSchedule(!autoSchedule)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSchedule ? 'bg-blue-600' : 'bg-gray-700'}`}
@@ -335,47 +359,51 @@ export default function Home() {
           </div>
 
           {autoSchedule && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-400">
-                Setzt automatisch Zeiten fur Posts ohne scheduled_at (beginnend beim ersten leeren Post).
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-gray-500">
+                Setzt automatisch Zeiten für Posts ohne Datum (beginnend beim ersten leeren Post).
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1.5">Startdatum & -Zeit</label>
+                  <label className="block text-xs text-gray-400 mb-1.5">Startdatum & -Zeit</label>
                   <input
                     type="datetime-local"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1.5">Intervall</label>
+                  <label className="block text-xs text-gray-400 mb-1.5">Intervall</label>
                   <input
                     type="number"
                     min={1}
                     value={intervalValue}
                     onChange={e => setIntervalValue(Number(e.target.value))}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1.5">Einheit</label>
-                  <select
-                    value={intervalUnit}
-                    onChange={e => setIntervalUnit(e.target.value as 'days' | 'hours')}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="days">Tage</option>
-                    <option value="hours">Stunden</option>
-                  </select>
+                  <label className="block text-xs text-gray-400 mb-1.5">Einheit</label>
+                  <div className="relative">
+                    <select
+                      value={intervalUnit}
+                      onChange={e => setIntervalUnit(e.target.value as 'days' | 'hours')}
+                      className="w-full appearance-none bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 pr-8 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="days">Tage</option>
+                      <option value="hours">Stunden</option>
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-500 pointer-events-none" />
+                  </div>
                 </div>
               </div>
               <button
                 onClick={applyAutoSchedule}
                 disabled={!startDate || posts.length === 0}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
               >
+                <Calendar className="w-3.5 h-3.5" />
                 Zeiten anwenden
               </button>
             </div>
@@ -386,19 +414,25 @@ export default function Home() {
         {posts.length > 0 && (
           <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Vorschau ({posts.length} Posts)</h2>
+              <div className="flex items-center gap-2">
+                <LayoutList className="w-4 h-4 text-gray-400" />
+                <h2 className="text-base font-semibold text-white">Vorschau <span className="text-gray-500 font-normal text-sm">({posts.length} Posts)</span></h2>
+              </div>
               <button
                 onClick={handleScheduleAll}
                 disabled={isScheduling || !selectedAccount || posts.length === 0}
-                className="px-5 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors flex items-center gap-2"
+                className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
               >
                 {isScheduling ? (
                   <>
-                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Planend... ({schedulingProgress}/{posts.length})
                   </>
                 ) : (
-                  'Alle planen'
+                  <>
+                    <Play className="w-4 h-4" />
+                    Alle planen
+                  </>
                 )}
               </button>
             </div>
@@ -407,15 +441,15 @@ export default function Home() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="text-left text-gray-400 font-medium pb-3 pr-4 w-16">Bild</th>
-                    <th className="text-left text-gray-400 font-medium pb-3 pr-4">Text</th>
-                    <th className="text-left text-gray-400 font-medium pb-3 pr-4 w-48">Erster Kommentar</th>
-                    <th className="text-left text-gray-400 font-medium pb-3 pr-4 w-44">Geplant am</th>
-                    <th className="text-left text-gray-400 font-medium pb-3 pr-4 w-24">Status</th>
-                    <th className="pb-3 w-10"></th>
+                    <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-16">Bild</th>
+                    <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4">Text</th>
+                    <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-48">Erster Kommentar</th>
+                    <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-44">Geplant am</th>
+                    <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-24">Status</th>
+                    <th className="pb-3 w-8"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className="divide-y divide-gray-800/60">
                   {posts.map((post, idx) => (
                     <tr key={idx} className="group">
                       <td className="py-3 pr-4">
@@ -428,8 +462,8 @@ export default function Home() {
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
                           />
                         ) : (
-                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-gray-600 text-xs">
-                            kein
+                          <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-gray-600" />
                           </div>
                         )}
                       </td>
@@ -463,10 +497,10 @@ export default function Home() {
                       <td className="py-3">
                         <button
                           onClick={() => deletePost(idx)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all text-lg leading-none"
+                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all"
                           title="Löschen"
                         >
-                          ×
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
                     </tr>
@@ -480,22 +514,33 @@ export default function Home() {
         {/* Results */}
         {results.length > 0 && (
           <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Ergebnisse
-              <span className="ml-3 text-sm font-normal text-gray-400">
-                <span className="text-green-400">{successCount} erfolgreich</span>
-                {failCount > 0 && <span className="text-red-400 ml-2">{failCount} fehlgeschlagen</span>}
-              </span>
-            </h2>
+            <div className="flex items-center gap-3 mb-4">
+              <h2 className="text-base font-semibold text-white">Ergebnisse</h2>
+              <div className="flex items-center gap-3 text-sm">
+                {successCount > 0 && (
+                  <span className="flex items-center gap-1 text-green-400">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {successCount} erfolgreich
+                  </span>
+                )}
+                {failCount > 0 && (
+                  <span className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-3.5 h-3.5" />
+                    {failCount} fehlgeschlagen
+                  </span>
+                )}
+              </div>
+            </div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {results.map((r, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-start gap-3 p-3 rounded-lg text-sm ${r.success ? 'bg-green-950 border border-green-900' : 'bg-red-950 border border-red-900'}`}
+                  className={`flex items-start gap-3 p-3 rounded-lg text-sm ${r.success ? 'bg-green-950/60 border border-green-900/50' : 'bg-red-950/60 border border-red-900/50'}`}
                 >
-                  <span className={`text-lg leading-none mt-0.5 ${r.success ? 'text-green-400' : 'text-red-400'}`}>
-                    {r.success ? '✓' : '✗'}
-                  </span>
+                  {r.success
+                    ? <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                    : <XCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                  }
                   <div className="flex-1 min-w-0">
                     <span className="text-gray-200 truncate block">{r.text}</span>
                     {r.scheduledAt && (
@@ -517,17 +562,19 @@ export default function Home() {
 }
 
 function StatusBadge({ status, error }: { status: Post['status']; error?: string }) {
-  const styles = {
-    ausstehend: 'bg-gray-800 text-gray-400',
-    geplant: 'bg-green-950 text-green-400 border border-green-900',
-    fehlgeschlagen: 'bg-red-950 text-red-400 border border-red-900',
-  }
+  if (status === 'geplant') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-950 text-green-400 border border-green-900" title={error}>
+      <CheckCircle2 className="w-3 h-3" /> geplant
+    </span>
+  )
+  if (status === 'fehlgeschlagen') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-950 text-red-400 border border-red-900" title={error}>
+      <XCircle className="w-3 h-3" /> Fehler
+    </span>
+  )
   return (
-    <span
-      className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${styles[status]}`}
-      title={error}
-    >
-      {status}
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400" title={error}>
+      <Clock className="w-3 h-3" /> ausstehend
     </span>
   )
 }
