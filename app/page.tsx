@@ -95,6 +95,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState('')
   const [intervalValue, setIntervalValue] = useState(1)
   const [intervalUnit, setIntervalUnit] = useState<'days' | 'hours'>('days')
+  const [publishNow, setPublishNow] = useState(false)
   const [isScheduling, setIsScheduling] = useState(false)
   const [schedulingProgress, setSchedulingProgress] = useState(0)
   const [results, setResults] = useState<{ success: boolean; text: string; scheduledAt: string; error?: string | null }[]>([])
@@ -170,38 +171,57 @@ export default function Home() {
     setPosts(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
   }
 
+  async function schedulePostBatch(indices: number[]) {
+    const payload = indices.map(i => {
+      const p = posts[i]
+      return {
+        imageUrl: p.imageUrl,
+        text: p.text,
+        firstComment: p.firstComment,
+        commentDelay: commentDelay > 0 ? { duration: commentDelay, unit: commentDelayUnit } : null,
+        scheduledAt: publishNow ? '' : p.scheduledAt,
+        accountId: selectedAccount,
+      }
+    })
+    const res = await fetch('/api/publer/schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspaceId: selectedWorkspace, posts: payload }),
+    })
+    const data = await res.json()
+    return (data.results || []) as { success: boolean; text: string; scheduledAt: string; error?: string | null }[]
+  }
+
+  async function handleScheduleOne(idx: number) {
+    if (!selectedWorkspace || !selectedAccount) return
+    setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: 'ausstehend' } : p))
+    try {
+      const [result] = await schedulePostBatch([idx])
+      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: result.success ? 'geplant' : 'fehlgeschlagen', error: result.error || undefined } : p))
+      setResults(prev => [...prev, result])
+    } catch (err) {
+      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: 'fehlgeschlagen', error: String(err) } : p))
+    }
+  }
+
   async function handleScheduleAll() {
     if (!selectedWorkspace || !selectedAccount || posts.length === 0) return
     setIsScheduling(true)
     setSchedulingProgress(0)
     setResults([])
 
-    const payload = posts.map(p => ({
-      imageUrl: p.imageUrl,
-      text: p.text,
-      firstComment: p.firstComment,
-      commentDelay: commentDelay > 0 ? { duration: commentDelay, unit: commentDelayUnit } : null,
-      scheduledAt: p.scheduledAt,
-      accountId: selectedAccount,
-    }))
-
     const batchSize = 5
     const allResults: typeof results = []
 
-    for (let i = 0; i < payload.length; i += batchSize) {
-      const batch = payload.slice(i, i + batchSize)
+    for (let i = 0; i < posts.length; i += batchSize) {
+      const indices = Array.from({ length: Math.min(batchSize, posts.length - i) }, (_, k) => i + k)
       try {
-        const res = await fetch('/api/publer/schedule', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId: selectedWorkspace, posts: batch }),
-        })
-        const data = await res.json()
-        allResults.push(...(data.results || []))
+        const batchResults = await schedulePostBatch(indices)
+        allResults.push(...batchResults)
       } catch (err) {
-        batch.forEach(b => allResults.push({ success: false, text: b.text.substring(0, 50), scheduledAt: b.scheduledAt, error: String(err) }))
+        indices.forEach(idx => allResults.push({ success: false, text: posts[idx].text.substring(0, 50), scheduledAt: posts[idx].scheduledAt, error: String(err) }))
       }
-      setSchedulingProgress(Math.min(i + batchSize, payload.length))
+      setSchedulingProgress(Math.min(i + batchSize, posts.length))
       setResults([...allResults])
     }
 
@@ -481,23 +501,34 @@ export default function Home() {
                 <LayoutList className="w-4 h-4 text-gray-400" />
                 <h2 className="text-base font-semibold text-white">Vorschau <span className="text-gray-500 font-normal text-sm">({posts.length} Posts)</span></h2>
               </div>
-              <button
-                onClick={handleScheduleAll}
-                disabled={isScheduling || !selectedAccount || posts.length === 0}
-                className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg text-sm text-white font-medium transition-colors"
-              >
-                {isScheduling ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Planend... ({schedulingProgress}/{posts.length})
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    Alle planen
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <span className="text-sm text-gray-400">Sofort veröffentlichen</span>
+                  <button
+                    onClick={() => setPublishNow(!publishNow)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${publishNow ? 'bg-orange-500' : 'bg-gray-700'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${publishNow ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
+                </label>
+                <button
+                  onClick={handleScheduleAll}
+                  disabled={isScheduling || !selectedAccount || posts.length === 0}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm text-white font-medium transition-colors disabled:bg-gray-700 disabled:text-gray-500 ${publishNow ? 'bg-orange-600 hover:bg-orange-500' : 'bg-green-600 hover:bg-green-500'}`}
+                >
+                  {isScheduling ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {publishNow ? 'Veröffentliche...' : 'Planend...'} ({schedulingProgress}/{posts.length})
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" />
+                      {publishNow ? 'Alle sofort posten' : 'Alle planen'}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -509,7 +540,7 @@ export default function Home() {
                     <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-48">Erster Kommentar</th>
                     <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-44">Geplant am</th>
                     <th className="text-left text-gray-500 font-medium text-xs pb-3 pr-4 w-24">Status</th>
-                    <th className="pb-3 w-8"></th>
+                    <th className="pb-3 w-20"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800/60">
@@ -558,13 +589,23 @@ export default function Home() {
                         <StatusBadge status={post.status} error={post.error} />
                       </td>
                       <td className="py-3">
-                        <button
-                          onClick={() => deletePost(idx)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all"
-                          title="Löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => handleScheduleOne(idx)}
+                            disabled={post.status === 'geplant' || isScheduling}
+                            className={`p-1.5 rounded transition-colors disabled:opacity-30 ${publishNow ? 'text-orange-400 hover:bg-orange-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
+                            title={publishNow ? 'Sofort veröffentlichen' : 'Planen'}
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deletePost(idx)}
+                            className="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+                            title="Löschen"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
