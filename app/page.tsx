@@ -89,6 +89,8 @@ export default function Home() {
   const [selectedAccount, setSelectedAccount] = useState('')
   const [csvText, setCsvText] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
+  const [commentDelay, setCommentDelay] = useState(0)
+  const [commentDelayUnit, setCommentDelayUnit] = useState<'Minute' | 'Hour' | 'Day'>('Minute')
   const [autoSchedule, setAutoSchedule] = useState(false)
   const [startDate, setStartDate] = useState('')
   const [intervalValue, setIntervalValue] = useState(1)
@@ -178,6 +180,7 @@ export default function Home() {
       imageUrl: p.imageUrl,
       text: p.text,
       firstComment: p.firstComment,
+      commentDelay: commentDelay > 0 ? { duration: commentDelay, unit: commentDelayUnit } : null,
       scheduledAt: p.scheduledAt,
       accountId: selectedAccount,
     }))
@@ -342,6 +345,64 @@ export default function Home() {
                 </span>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* Comment Delay */}
+        <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <h2 className="text-base font-semibold text-white">First Comment Verzögerung</h2>
+            <span className="text-xs text-gray-500 ml-1">— gilt für alle Posts</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Sofort</span>
+              <button
+                onClick={() => setCommentDelay(0)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${commentDelay === 0 ? 'bg-blue-600' : 'bg-gray-700'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${commentDelay === 0 ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {commentDelay === 0 && (
+              <button
+                onClick={() => setCommentDelay(5)}
+                className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+              >
+                Verzögerung hinzufügen
+              </button>
+            )}
+            {commentDelay > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">nach</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={commentDelay}
+                  onChange={e => setCommentDelay(Number(e.target.value))}
+                  className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
+                />
+                <div className="relative">
+                  <select
+                    value={commentDelayUnit}
+                    onChange={e => setCommentDelayUnit(e.target.value as 'Minute' | 'Hour' | 'Day')}
+                    className="appearance-none bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 pr-7 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="Minute">Minuten</option>
+                    <option value="Hour">Stunden</option>
+                    <option value="Day">Tage</option>
+                  </select>
+                  <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                </div>
+                <button
+                  onClick={() => setCommentDelay(0)}
+                  className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                >
+                  entfernen
+                </button>
+              </div>
+            )}
           </div>
         </section>
 

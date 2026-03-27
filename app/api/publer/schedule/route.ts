@@ -50,7 +50,9 @@ export async function POST(request: NextRequest) {
       const accountEntry: Record<string, unknown> = { id: post.accountId }
       if (post.scheduledAt) accountEntry.scheduled_at = post.scheduledAt
       if (post.firstComment) {
-        accountEntry.comments = [{ text: post.firstComment }]
+        const comment: Record<string, unknown> = { text: post.firstComment }
+        if (post.commentDelay) comment.delay = post.commentDelay
+        accountEntry.comments = [comment]
       }
 
       const postBody = {
