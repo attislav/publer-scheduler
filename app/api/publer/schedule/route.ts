@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
         accountEntry.comments = [comment]
       }
 
-      const state = post.postMode === 'draft' ? 'draft' : 'scheduled'
-      console.log(`[schedule] Using state="${state}"`)
+      const state = 'scheduled'
+      console.log(`[schedule] Using state="${state}", mode=${post.postMode}`)
       const postBody = {
         bulk: {
           state,
