@@ -103,12 +103,15 @@ export async function POST(request: NextRequest) {
       let postData: any
       try { postData = JSON.parse(postRawText) } catch { throw new Error(`Post-Antwort kein JSON (${postRes.status}): ${postRawText.substring(0, 200)}`) }
 
+      // Publer returns either {"success":true,"data":{"job_id":"..."}} or just {"job_id":"..."}
+      const postJobId = postData?.job_id ?? postData?.data?.job_id
+      const postSuccess = postData?.success === true || !!postJobId
       results.push({
-        success: postData?.success === true,
+        success: postSuccess,
         text: post.text.substring(0, 50),
         scheduledAt: post.scheduledAt,
-        jobId: postData?.data?.job_id,
-        error: postData?.success ? null : `Publer Fehler (${postRes.status}): ${JSON.stringify(postData)}`
+        jobId: postJobId,
+        error: postSuccess ? null : `Publer Fehler (${postRes.status}): ${JSON.stringify(postData)}`
       })
     } catch (err: unknown) {
       console.error(`[schedule] Error:`, err)
