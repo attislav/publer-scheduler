@@ -95,7 +95,7 @@ export default function Home() {
   const [startDate, setStartDate] = useState('')
   const [intervalValue, setIntervalValue] = useState(1)
   const [intervalUnit, setIntervalUnit] = useState<'days' | 'hours'>('days')
-  const [publishNow, setPublishNow] = useState(false)
+  const [postMode, setPostMode] = useState<'scheduled' | 'now' | 'draft'>('scheduled')
   const [isScheduling, setIsScheduling] = useState(false)
   const [schedulingProgress, setSchedulingProgress] = useState(0)
   const [results, setResults] = useState<{ success: boolean; text: string; scheduledAt: string; error?: string | null }[]>([])
@@ -179,7 +179,8 @@ export default function Home() {
         text: p.text,
         firstComment: p.firstComment,
         commentDelay: commentDelay > 0 ? { duration: commentDelay, unit: commentDelayUnit } : null,
-        scheduledAt: publishNow ? '' : p.scheduledAt,
+        scheduledAt: postMode === 'now' ? '' : p.scheduledAt,
+      postMode,
         accountId: selectedAccount,
       }
     })
@@ -502,29 +503,39 @@ export default function Home() {
                 <h2 className="text-base font-semibold text-white">Vorschau <span className="text-gray-500 font-normal text-sm">({posts.length} Posts)</span></h2>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span className="text-sm text-gray-400">Sofort veröffentlichen</span>
-                  <button
-                    onClick={() => setPublishNow(!publishNow)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${publishNow ? 'bg-orange-500' : 'bg-gray-700'}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${publishNow ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                  </button>
-                </label>
+                <div className="flex items-center bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+                  {([
+                    { value: 'draft', label: 'Draft', color: 'text-yellow-400' },
+                    { value: 'scheduled', label: 'Geplant', color: 'text-green-400' },
+                    { value: 'now', label: 'Sofort', color: 'text-orange-400' },
+                  ] as const).map(m => (
+                    <button
+                      key={m.value}
+                      onClick={() => setPostMode(m.value)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${postMode === m.value ? `bg-gray-700 ${m.color}` : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={handleScheduleAll}
                   disabled={isScheduling || !selectedAccount || posts.length === 0}
-                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm text-white font-medium transition-colors disabled:bg-gray-700 disabled:text-gray-500 ${publishNow ? 'bg-orange-600 hover:bg-orange-500' : 'bg-green-600 hover:bg-green-500'}`}
+                  className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm text-white font-medium transition-colors disabled:bg-gray-700 disabled:text-gray-500 ${
+                    postMode === 'now' ? 'bg-orange-600 hover:bg-orange-500' :
+                    postMode === 'draft' ? 'bg-yellow-700 hover:bg-yellow-600' :
+                    'bg-green-600 hover:bg-green-500'
+                  }`}
                 >
                   {isScheduling ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      {publishNow ? 'Veröffentliche...' : 'Planend...'} ({schedulingProgress}/{posts.length})
+                      {postMode === 'draft' ? 'Drafts...' : postMode === 'now' ? 'Veröffentliche...' : 'Planend...'} ({schedulingProgress}/{posts.length})
                     </>
                   ) : (
                     <>
                       <Play className="w-4 h-4" />
-                      {publishNow ? 'Alle sofort posten' : 'Alle planen'}
+                      {postMode === 'draft' ? 'Alle als Draft' : postMode === 'now' ? 'Alle sofort posten' : 'Alle planen'}
                     </>
                   )}
                 </button>
@@ -593,8 +604,8 @@ export default function Home() {
                           <button
                             onClick={() => handleScheduleOne(idx)}
                             disabled={post.status === 'geplant' || isScheduling}
-                            className={`p-1.5 rounded transition-colors disabled:opacity-30 ${publishNow ? 'text-orange-400 hover:bg-orange-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
-                            title={publishNow ? 'Sofort veröffentlichen' : 'Planen'}
+                            className={`p-1.5 rounded transition-colors disabled:opacity-30 ${postMode === 'now' ? 'text-orange-400 hover:bg-orange-900/40' : postMode === 'draft' ? 'text-yellow-400 hover:bg-yellow-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
+                            title={postMode === 'now' ? 'Sofort veröffentlichen' : postMode === 'draft' ? 'Als Draft speichern' : 'Planen'}
                           >
                             <Play className="w-3.5 h-3.5" />
                           </button>
