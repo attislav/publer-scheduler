@@ -79,10 +79,9 @@ export async function POST(request: NextRequest) {
       }
 
       const isDraft = post.postMode === 'draft'
-      console.log(`[schedule] Mode=${post.postMode}, isDraft=${isDraft}`)
+      const isAuto = post.postMode === 'auto'
+      console.log(`[schedule] Mode=${post.postMode}, isDraft=${isDraft}, isAuto=${isAuto}`)
 
-      // Draft: different endpoint + networks.default, no accounts needed
-      // Scheduled/Now: /posts/schedule/publish + networks.facebook + accounts
       const postBody = isDraft
         ? {
             bulk: {
@@ -91,6 +90,18 @@ export async function POST(request: NextRequest) {
                 networks: { facebook: { type: 'photo', text: post.text } },
                 media: [{ id: mediaId, type: 'photo' }],
                 accounts: [{ id: post.accountId }]
+              }]
+            }
+          }
+        : isAuto
+        ? {
+            bulk: {
+              state: 'scheduled',
+              auto: true,
+              posts: [{
+                networks: { facebook: { type: 'photo', text: post.text } },
+                media: [{ id: mediaId, type: 'photo' }],
+                accounts: [{ id: post.accountId, share_next: true }]
               }]
             }
           }
