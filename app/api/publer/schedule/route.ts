@@ -131,13 +131,30 @@ export async function POST(request: NextRequest) {
 
       // Publer returns either {"success":true,"data":{"job_id":"..."}} or just {"job_id":"..."}
       const postJobId = postData?.job_id ?? postData?.data?.job_id
-      const postSuccess = postData?.success === true || !!postJobId
+      if (!postJobId) throw new Error(`Post-Erstellung fehlgeschlagen (${postRes.status}): ${JSON.stringify(postData)}`)
+
+      // Poll post job to confirm actual success
+      console.log(`[schedule] Step 4: Polling post job ${postJobId}...`)
+      await new Promise(r => setTimeout(r, 2000))
+      let postFinalStatus = null
+      let postFinalData = null
+      for (let i = 0; i < 10; i++) {
+        const jobRes = await fetch(`${PUBLER_BASE}/job_status/${postJobId}`, { headers: headers(key, workspaceId) })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let jobData: any
+        try { jobData = await jobRes.json() } catch { break }
+        const status = jobData?.status ?? jobData?.data?.status
+        console.log(`[schedule] Post job poll ${i + 1}: status=${status}`)
+        if (status === 'complete' || status === 'failed') { postFinalStatus = status; postFinalData = jobData; break }
+        await new Promise(r => setTimeout(r, 1500))
+      }
+      const postSuccess = postFinalStatus === 'complete'
       results.push({
         success: postSuccess,
         text: post.text.substring(0, 50),
         scheduledAt: post.scheduledAt,
         jobId: postJobId,
-        error: postSuccess ? null : `Publer Fehler (${postRes.status}): ${JSON.stringify(postData)}`
+        error: postSuccess ? null : `Post-Job fehlgeschlagen: ${JSON.stringify(postFinalData)}`
       })
     } catch (err: unknown) {
       console.error(`[schedule] Error:`, err)
