@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
             }
           }
 
-      const postEndpoint = `${PUBLER_BASE}/posts/schedule/publish`
+      const postEndpoint = isDraft ? `${PUBLER_BASE}/posts/schedule` : `${PUBLER_BASE}/posts/schedule/publish`
       console.log(`[schedule] Step 3: Creating post via ${postEndpoint}...`, JSON.stringify(postBody))
       const postRes = await fetch(postEndpoint, {
         method: 'POST',
