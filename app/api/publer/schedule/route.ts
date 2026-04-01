@@ -86,10 +86,11 @@ export async function POST(request: NextRequest) {
       const postBody = isDraft
         ? {
             bulk: {
-              state: 'draft_public',
+              state: 'draft',
               posts: [{
-                networks: { default: { type: 'photo', text: post.text } },
+                networks: { facebook: { type: 'photo', text: post.text } },
                 media: [{ id: mediaId, type: 'photo' }],
+                accounts: [{ id: post.accountId }]
               }]
             }
           }
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
             }
           }
 
-      const postEndpoint = isDraft ? `${PUBLER_BASE}/posts/schedule` : `${PUBLER_BASE}/posts/schedule/publish`
+      const postEndpoint = `${PUBLER_BASE}/posts/schedule/publish`
       console.log(`[schedule] Step 3: Creating post via ${postEndpoint}...`, JSON.stringify(postBody))
       const postRes = await fetch(postEndpoint, {
         method: 'POST',
