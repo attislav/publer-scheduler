@@ -12,6 +12,7 @@ interface Post {
   firstComment: string
   scheduledAt: string
   status: 'ausstehend' | 'geplant' | 'fehlgeschlagen'
+  loading?: boolean
   error?: string
 }
 
@@ -195,13 +196,13 @@ export default function Home() {
 
   async function handleScheduleOne(idx: number) {
     if (!selectedWorkspace || !selectedAccount) return
-    setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: 'ausstehend' } : p))
+    setPosts(prev => prev.map((p, i) => i === idx ? { ...p, loading: true } : p))
     try {
       const [result] = await schedulePostBatch([idx])
-      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: result.success ? 'geplant' : 'fehlgeschlagen', error: result.error || undefined } : p))
+      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, status: result.success ? 'geplant' : 'fehlgeschlagen', error: result.error || undefined } : p))
       setResults(prev => [...prev, result])
     } catch (err) {
-      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, status: 'fehlgeschlagen', error: String(err) } : p))
+      setPosts(prev => prev.map((p, i) => i === idx ? { ...p, loading: false, status: 'fehlgeschlagen', error: String(err) } : p))
     }
   }
 
@@ -603,11 +604,11 @@ export default function Home() {
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
                           <button
                             onClick={() => handleScheduleOne(idx)}
-                            disabled={post.status === 'geplant' || post.status === 'ausstehend' || isScheduling}
+                            disabled={post.status === 'geplant' || post.loading || isScheduling}
                             className={`p-1.5 rounded transition-colors disabled:opacity-30 ${postMode === 'now' ? 'text-orange-400 hover:bg-orange-900/40' : postMode === 'draft' ? 'text-yellow-400 hover:bg-yellow-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
                             title={postMode === 'now' ? 'Sofort veröffentlichen' : 'Planen'}
                           >
-                            {post.status === 'ausstehend'
+                            {post.loading
                               ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               : <Play className="w-3.5 h-3.5" />}
                           </button>
