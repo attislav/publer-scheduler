@@ -603,11 +603,13 @@ export default function Home() {
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
                           <button
                             onClick={() => handleScheduleOne(idx)}
-                            disabled={post.status === 'geplant' || isScheduling}
+                            disabled={post.status === 'geplant' || post.status === 'ausstehend' || isScheduling}
                             className={`p-1.5 rounded transition-colors disabled:opacity-30 ${postMode === 'now' ? 'text-orange-400 hover:bg-orange-900/40' : postMode === 'draft' ? 'text-yellow-400 hover:bg-yellow-900/40' : 'text-green-400 hover:bg-green-900/40'}`}
                             title={postMode === 'now' ? 'Sofort veröffentlichen' : 'Planen'}
                           >
-                            <Play className="w-3.5 h-3.5" />
+                            {post.status === 'ausstehend'
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Play className="w-3.5 h-3.5" />}
                           </button>
                           <button
                             onClick={() => deletePost(idx)}
