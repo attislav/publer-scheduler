@@ -3,8 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Upload, FileText, Play, Trash2, CheckCircle2, XCircle,
-  Clock, RefreshCw, ChevronDown, Calendar, Settings2, LayoutList, Loader2
+  Clock, RefreshCw, ChevronDown, Calendar, Settings2, LayoutList, Loader2,
+  Sparkles
 } from 'lucide-react'
+import StatusPostsTab from './components/StatusPostsTab'
 
 interface Post {
   imageUrl: string
@@ -84,6 +86,7 @@ function parseCSV(raw: string): Post[] {
 }
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'bulk' | 'status'>('bulk')
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [selectedWorkspace, setSelectedWorkspace] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -96,6 +99,8 @@ export default function Home() {
   const [startDate, setStartDate] = useState('')
   const [intervalValue, setIntervalValue] = useState(1)
   const [intervalUnit, setIntervalUnit] = useState<'days' | 'hours'>('days')
+  const [labels, setLabels] = useState<string[]>([])
+  const [labelInput, setLabelInput] = useState('')
   const [postMode, setPostMode] = useState<'scheduled' | 'now' | 'draft' | 'auto'>('scheduled')
   const [isScheduling, setIsScheduling] = useState(false)
   const [schedulingProgress, setSchedulingProgress] = useState(0)
@@ -181,7 +186,8 @@ export default function Home() {
         firstComment: p.firstComment,
         commentDelay: commentDelay > 0 ? { duration: commentDelay, unit: commentDelayUnit } : null,
         scheduledAt: postMode === 'now' ? '' : p.scheduledAt,
-      postMode,
+        postMode,
+        labels: labels.length > 0 ? labels : null,
         accountId: selectedAccount,
       }
     })
@@ -253,12 +259,22 @@ export default function Home() {
               <p className="text-gray-500 text-xs">Facebook Bulk Post Planer</p>
             </div>
           </div>
-          {posts.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-gray-400">
-              <LayoutList className="w-4 h-4" />
-              <span><span className="text-white font-medium">{posts.length}</span> Posts geladen</span>
-            </div>
-          )}
+          <div className="flex items-center bg-gray-800 rounded-lg p-0.5 border border-gray-700">
+            <button
+              onClick={() => setActiveTab('bulk')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'bulk' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              Bulk Scheduler
+            </button>
+            <button
+              onClick={() => setActiveTab('status')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === 'status' ? 'bg-gray-700 text-purple-400' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Status Posts
+            </button>
+          </div>
         </div>
       </header>
 
@@ -313,6 +329,18 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* Status Posts Tab */}
+        {activeTab === 'status' && (
+          <StatusPostsTab
+            selectedWorkspace={selectedWorkspace}
+            selectedAccount={selectedAccount}
+            labels={labels}
+          />
+        )}
+
+        {/* === Bulk Scheduler Tab === */}
+        {activeTab === 'bulk' && (<>
 
         {/* CSV Import */}
         <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
@@ -425,6 +453,57 @@ export default function Home() {
                 </button>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Labels */}
+        <section className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings2 className="w-4 h-4 text-gray-400" />
+            <h2 className="text-base font-semibold text-white">Labels</h2>
+            <span className="text-xs text-gray-500 ml-1">— gilt für alle Posts</span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {labels.map((label, idx) => (
+              <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-950 text-blue-300 border border-blue-800 text-sm">
+                {label}
+                <button
+                  onClick={() => setLabels(prev => prev.filter((_, i) => i !== idx))}
+                  className="text-blue-500 hover:text-red-400 transition-colors"
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+            <div className="flex items-center gap-2">
+              <input
+                value={labelInput}
+                onChange={e => setLabelInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && labelInput.trim()) {
+                    e.preventDefault()
+                    if (!labels.includes(labelInput.trim())) {
+                      setLabels(prev => [...prev, labelInput.trim()])
+                    }
+                    setLabelInput('')
+                  }
+                }}
+                placeholder="Label eingeben + Enter"
+                className="w-48 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder-gray-600"
+              />
+              <button
+                onClick={() => {
+                  if (labelInput.trim() && !labels.includes(labelInput.trim())) {
+                    setLabels(prev => [...prev, labelInput.trim()])
+                  }
+                  setLabelInput('')
+                }}
+                disabled={!labelInput.trim()}
+                className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 border border-gray-700 rounded-lg text-sm text-gray-300 transition-colors"
+              >
+                +
+              </button>
+            </div>
           </div>
         </section>
 
@@ -676,6 +755,7 @@ export default function Home() {
           </section>
         )}
 
+        </>)}
       </main>
     </div>
   )

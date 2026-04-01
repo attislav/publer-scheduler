@@ -22,56 +22,61 @@ export async function POST(request: NextRequest) {
 
   for (const post of posts) {
     try {
-      console.log(`[schedule] Post: "${post.text?.substring(0, 40)}", imageUrl=${post.imageUrl}, scheduledAt=${post.scheduledAt || 'sofort'}`)
+      console.log(`[schedule] Post: "${post.text?.substring(0, 40)}", imageUrl=${post.imageUrl || 'none'}, scheduledAt=${post.scheduledAt || 'sofort'}`)
 
-      // 1. Upload image
-      console.log(`[schedule] Step 1: Uploading image from URL...`)
-      const mediaRes = await fetch(`${PUBLER_BASE}/media/from-url`, {
-        method: 'POST',
-        headers: headers(key, workspaceId),
-        body: JSON.stringify({ media: [{ url: post.imageUrl, name: 'post-image' }], type: 'single' })
-      })
-      const mediaRawText = await mediaRes.text()
-      console.log(`[schedule] Step 1 response (${mediaRes.status}): ${mediaRawText}`)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let mediaData: any
-      try { mediaData = JSON.parse(mediaRawText) } catch { throw new Error(`Upload-Antwort kein JSON (${mediaRes.status}): ${mediaRawText.substring(0, 200)}`) }
+      let mediaId: string | null = null
 
-      const jobId = mediaData?.job_id
-      if (!jobId) throw new Error(`Bild-Upload fehlgeschlagen (${mediaRes.status}): ${JSON.stringify(mediaData)}`)
-
-      // 2. Poll for media ID
-      console.log(`[schedule] Step 2: Polling job ${jobId}...`)
-      await new Promise(r => setTimeout(r, 3000))
-      let mediaId = null
-      let lastStatusData = null
-      for (let i = 0; i < 15; i++) {
-        const statusRes = await fetch(`${PUBLER_BASE}/job_status/${jobId}`, {
-          headers: headers(key, workspaceId)
+      // 1. Upload image (skip for status posts)
+      if (post.imageUrl) {
+        console.log(`[schedule] Step 1: Uploading image from URL...`)
+        const mediaRes = await fetch(`${PUBLER_BASE}/media/from-url`, {
+          method: 'POST',
+          headers: headers(key, workspaceId),
+          body: JSON.stringify({ media: [{ url: post.imageUrl, name: 'post-image' }], type: 'single' })
         })
-        const statusRawText = await statusRes.text()
+        const mediaRawText = await mediaRes.text()
+        console.log(`[schedule] Step 1 response (${mediaRes.status}): ${mediaRawText}`)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let statusData: any
-        try { statusData = JSON.parse(statusRawText) } catch { throw new Error(`Job-Status kein JSON: ${statusRawText.substring(0, 200)}`) }
-        lastStatusData = statusData
-        // Support both response shapes: { status, payload } and { data: { status, payload } }
-        const status = statusData?.status ?? statusData?.data?.status
-        const payload = statusData?.payload ?? statusData?.data?.payload
-        console.log(`[schedule] Job poll ${i + 1}: status=${status}, payload=${JSON.stringify(payload)}`)
+        let mediaData: any
+        try { mediaData = JSON.parse(mediaRawText) } catch { throw new Error(`Upload-Antwort kein JSON (${mediaRes.status}): ${mediaRawText.substring(0, 200)}`) }
 
-        if (status === 'complete') {
-          mediaId = Array.isArray(payload) ? payload[0]?.id : payload?.id ?? null
-          console.log(`[schedule] Job complete. mediaId=${mediaId}`)
-          break
+        const jobId = mediaData?.job_id
+        if (!jobId) throw new Error(`Bild-Upload fehlgeschlagen (${mediaRes.status}): ${JSON.stringify(mediaData)}`)
+
+        // 2. Poll for media ID
+        console.log(`[schedule] Step 2: Polling job ${jobId}...`)
+        await new Promise(r => setTimeout(r, 3000))
+        let lastStatusData = null
+        for (let i = 0; i < 15; i++) {
+          const statusRes = await fetch(`${PUBLER_BASE}/job_status/${jobId}`, {
+            headers: headers(key, workspaceId)
+          })
+          const statusRawText = await statusRes.text()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let statusData: any
+          try { statusData = JSON.parse(statusRawText) } catch { throw new Error(`Job-Status kein JSON: ${statusRawText.substring(0, 200)}`) }
+          lastStatusData = statusData
+          const status = statusData?.status ?? statusData?.data?.status
+          const payload = statusData?.payload ?? statusData?.data?.payload
+          console.log(`[schedule] Job poll ${i + 1}: status=${status}, payload=${JSON.stringify(payload)}`)
+
+          if (status === 'complete') {
+            mediaId = Array.isArray(payload) ? payload[0]?.id : payload?.id ?? null
+            console.log(`[schedule] Job complete. mediaId=${mediaId}`)
+            break
+          }
+          if (status === 'failed') throw new Error(`Bild-Upload Job fehlgeschlagen: ${JSON.stringify(statusData)}`)
+          await new Promise(r => setTimeout(r, 2000))
         }
-        if (status === 'failed') throw new Error(`Bild-Upload Job fehlgeschlagen: ${JSON.stringify(statusData)}`)
-        await new Promise(r => setTimeout(r, 2000))
+        if (!mediaId) throw new Error(`Konnte Media-ID nicht ermitteln. Letzter Job-Status: ${JSON.stringify(lastStatusData)}`)
+      } else {
+        console.log(`[schedule] Status-Post (kein Bild), überspringe Upload`)
       }
-      if (!mediaId) throw new Error(`Konnte Media-ID nicht ermitteln. Letzter Job-Status: ${JSON.stringify(lastStatusData)}`)
 
       // 3. Create post
       const accountEntry: Record<string, unknown> = { id: post.accountId }
       if (post.scheduledAt) accountEntry.scheduled_at = post.scheduledAt
+      if (post.labels && post.labels.length > 0) accountEntry.labels = post.labels
       if (post.firstComment) {
         const comment: Record<string, unknown> = { text: post.firstComment }
         if (post.commentDelay) comment.delay = post.commentDelay
@@ -80,43 +85,72 @@ export async function POST(request: NextRequest) {
 
       const isDraft = post.postMode === 'draft'
       const isAuto = post.postMode === 'auto'
-      console.log(`[schedule] Mode=${post.postMode}, isDraft=${isDraft}, isAuto=${isAuto}`)
+      const isNow = post.postMode === 'now'
+      console.log(`[schedule] Mode=${post.postMode}, isDraft=${isDraft}, isAuto=${isAuto}, isNow=${isNow}`)
 
-      const postBody = isDraft
-        ? {
-            bulk: {
-              state: 'draft',
-              posts: [{
-                networks: { facebook: { type: 'photo', text: post.text } },
-                media: [{ id: mediaId, type: 'photo' }],
-                accounts: [{ id: post.accountId }]
-              }]
-            }
+      let postBody
+      let postEndpoint
+
+      // Build base account object with labels
+      const baseAccount: Record<string, unknown> = { id: post.accountId }
+      if (post.labels && post.labels.length > 0) baseAccount.labels = post.labels
+
+      // Photo post with media or status post (text only)
+      const fbNetwork = mediaId
+        ? { type: 'photo', text: post.text, media: [{ id: mediaId }] }
+        : { type: 'status', text: post.text }
+
+      if (isDraft) {
+        postBody = {
+          bulk: {
+            state: 'draft',
+            posts: [{
+              networks: { facebook: fbNetwork },
+              accounts: [{ ...baseAccount }]
+            }]
           }
-        : isAuto
-        ? {
-            bulk: {
-              state: 'scheduled',
+        }
+        postEndpoint = `${PUBLER_BASE}/posts/schedule`
+      } else if (isAuto) {
+        postBody = {
+          bulk: {
+            state: 'scheduled',
+            posts: [{
+              networks: { facebook: fbNetwork },
+              accounts: [{ ...baseAccount }],
               auto: true,
-              posts: [{
-                networks: { facebook: { type: 'photo', text: post.text } },
-                media: [{ id: mediaId, type: 'photo' }],
-                accounts: [{ id: post.accountId, share_next: true }]
-              }]
-            }
+              share_next: true,
+              range: {
+                start_date: post.scheduledAt || new Date().toISOString(),
+              }
+            }]
           }
-        : {
-            bulk: {
-              state: 'scheduled',
-              posts: [{
-                networks: { facebook: { type: 'photo', text: post.text } },
-                media: [{ id: mediaId, type: 'photo' }],
-                accounts: [accountEntry]
-              }]
-            }
+        }
+        postEndpoint = `${PUBLER_BASE}/posts/schedule`
+      } else if (isNow) {
+        postBody = {
+          bulk: {
+            state: 'scheduled',
+            posts: [{
+              networks: { facebook: fbNetwork },
+              accounts: [{ ...baseAccount }]
+            }]
           }
-
-      const postEndpoint = isDraft ? `${PUBLER_BASE}/posts/schedule` : `${PUBLER_BASE}/posts/schedule/publish`
+        }
+        postEndpoint = `${PUBLER_BASE}/posts/schedule/publish`
+      } else {
+        // scheduled
+        postBody = {
+          bulk: {
+            state: 'scheduled',
+            posts: [{
+              networks: { facebook: fbNetwork },
+              accounts: [accountEntry]
+            }]
+          }
+        }
+        postEndpoint = `${PUBLER_BASE}/posts/schedule`
+      }
       console.log(`[schedule] Step 3: Creating post via ${postEndpoint}...`, JSON.stringify(postBody))
       const postRes = await fetch(postEndpoint, {
         method: 'POST',
@@ -144,17 +178,23 @@ export async function POST(request: NextRequest) {
         let jobData: any
         try { jobData = await jobRes.json() } catch { break }
         const status = jobData?.status ?? jobData?.data?.status
-        console.log(`[schedule] Post job poll ${i + 1}: status=${status}`)
+        console.log(`[schedule] Post job poll ${i + 1}: status=${status}, full:`, JSON.stringify(jobData))
         if (status === 'complete' || status === 'failed') { postFinalStatus = status; postFinalData = jobData; break }
         await new Promise(r => setTimeout(r, 1500))
       }
-      const postSuccess = postFinalStatus === 'complete'
+      // Check for failures even when status is "complete"
+      const failures = postFinalData?.payload?.failures ?? postFinalData?.data?.payload?.failures ?? {}
+      const hasFailures = Object.keys(failures).length > 0
+      const postSuccess = postFinalStatus === 'complete' && !hasFailures
+      const failureMessages = hasFailures
+        ? Object.values(failures).flat().map((f: any) => (f as any).message).join('; ')
+        : null
       results.push({
         success: postSuccess,
         text: post.text.substring(0, 50),
         scheduledAt: post.scheduledAt,
         jobId: postJobId,
-        error: postSuccess ? null : `Post-Job fehlgeschlagen: ${JSON.stringify(postFinalData)}`
+        error: postSuccess ? null : (failureMessages || `Post-Job fehlgeschlagen: ${JSON.stringify(postFinalData)}`)
       })
     } catch (err: unknown) {
       console.error(`[schedule] Error:`, err)
